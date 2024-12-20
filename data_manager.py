@@ -2,6 +2,7 @@ import json
 import os
 from typing import List, Dict
 from pathlib import Path
+import uuid
 
 
 class DataManager:
@@ -11,9 +12,8 @@ class DataManager:
 
         self.accounts_file = self.data_dir / "accounts.json"
         self.categories_file = self.data_dir / "categories.json"
-        self.config_file = self.data_dir / "config.json"  # 新增配置文件
+        self.config_file = self.data_dir / "config.json"
 
-        # Initialize files if they don't exist
         self._init_files()
 
     def _init_files(self):
@@ -83,3 +83,37 @@ class DataManager:
         except Exception as e:
             print(f"Error saving categories: {e}")
             return False
+
+    def add_category(self, area_id: str, name: str) -> Dict:
+        """Add a new category with a unique monitor_id"""
+        categories = self.load_categories()
+
+        # 生成唯一的monitor_id
+        monitor_id = str(uuid.uuid4())
+
+        new_category = {
+            "monitor_id": monitor_id,  # 唯一监控ID
+            "area_id": area_id,  # 区域ID
+            "name": name.strip()  # 商品名称
+        }
+
+        categories.append(new_category)
+        self.save_categories(categories)
+        return new_category
+
+    def delete_category(self, monitor_id: str) -> bool:
+        """Delete a category by monitor_id"""
+        categories = self.load_categories()
+        original_length = len(categories)
+
+        categories = [cat for cat in categories if cat.get('monitor_id') != monitor_id]
+
+        if len(categories) < original_length:
+            self.save_categories(categories)
+            return True
+        return False
+
+    def get_categories_by_area(self, area_id: str) -> List[Dict]:
+        """Get all categories for a specific area"""
+        categories = self.load_categories()
+        return [cat for cat in categories if cat.get('area_id') == area_id]

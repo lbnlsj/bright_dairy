@@ -1,3 +1,7 @@
+// 全局变量存储监控状态
+let isMonitoring = false;
+
+// 加载区域配置
 function loadAreaConfig() {
     fetch('/api/config/areas')
         .then(response => response.json())
@@ -13,10 +17,13 @@ function loadAreaConfig() {
                 select.appendChild(option);
             });
         })
-        .catch(error => console.error('Error loading area config:', error));
+        .catch(error => {
+            console.error('Error loading area config:', error);
+            alert('加载区域配置失败');
+        });
 }
 
-// 修改loadCategories函数，使用区域配置显示区域名
+// 加载类目列表
 function loadCategories() {
     Promise.all([
         fetch('/api/categories').then(res => res.json()),
@@ -26,13 +33,13 @@ function loadCategories() {
             const categoryList = document.getElementById('categoryList');
             categoryList.innerHTML = categories.map(category => {
                 // 从区域配置中查找区域名
-                const areaName = Object.entries(areaConfig).find(([name, id]) => id === category.id)?.[0] || category.id;
+                const areaName = Object.entries(areaConfig).find(([name, id]) => id === category.area_id)?.[0] || category.area_id;
                 return `
                     <tr>
                         <td class="px-4 py-2">${areaName}</td>
                         <td class="px-4 py-2">${category.name}</td>
                         <td class="px-4 py-2 text-right">
-                            <button onclick="deleteCategory('${category.id}')" 
+                            <button onclick="deleteCategory('${category.monitor_id}')" 
                                     class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-sm">
                                 删除
                             </button>
@@ -41,36 +48,27 @@ function loadCategories() {
                 `;
             }).join('');
         })
-        .catch(error => console.error('Error loading data:', error));
+        .catch(error => {
+            console.error('Error loading categories:', error);
+            alert('加载监控列表失败');
+        });
 }
 
-
-// 确保页面加载时初始化区域选择框
-document.addEventListener('DOMContentLoaded', function () {
-    loadAreaConfig();
-    loadCategories();
-});
-
-
-// 全局变量存储监控状态
-let isMonitoring = false;
-
-
 // 删除类目
-function deleteCategory(categoryId) {
+function deleteCategory(monitorId) {
     if (!confirm('确定要删除此监控项吗？')) {
         return;
     }
 
-    fetch(`/api/categories/${categoryId}`, {
+    fetch(`/api/categories/${monitorId}`, {
         method: 'DELETE'
     })
         .then(response => response.json())
         .then(result => {
-            alert(result.message);
-            if (result.message === '类目删除成功') {
-                loadCategories();
+            if (result.success) {
+                loadCategories(); // 重新加载类目列表
             }
+            alert(result.message);
         })
         .catch(error => {
             console.error('Error:', error);
@@ -78,149 +76,13 @@ function deleteCategory(categoryId) {
         });
 }
 
-// 导入账号
-document.addEventListener('DOMContentLoaded', function () {
-    const importAccountBtn = document.getElementById('importAccountBtn');
-    if (importAccountBtn) {
-        importAccountBtn.addEventListener('click', function () {
-            const accountInput = document.getElementById('accountInput');
-            const accounts = accountInput.value;
+// 清空日志
+function clearLogs() {
+    document.getElementById('activityLogContent').innerHTML = '';
+    document.getElementById('pointLogContent').innerHTML = '';
+}
 
-            fetch('/api/accounts', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({accounts})
-            })
-                .then(response => response.json())
-                .then(result => {
-                    alert(result.message);
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('导入失败');
-                });
-        });
-    }
-});
-
-// 添加监控
-// 删除原来的静态AREA_CONFIG定义
-
-// 修改添加监控的事件处理
-document.addEventListener('DOMContentLoaded', function () {
-    const addCategoryBtn = document.getElementById('addCategoryBtn');
-    if (addCategoryBtn) {
-        addCategoryBtn.addEventListener('click', function () {
-            const categoryId = document.getElementById('newCategoryId').value;
-            const categoryName = document.getElementById('newCategoryName').value;
-
-            if (!categoryId) {
-                alert('请选择区域');
-                return;
-            }
-
-            if (!categoryName) {
-                alert('请输入需要监控的商品名');
-                return;
-            }
-
-            fetch('/api/categories', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    id: categoryId,
-                    name: categoryName
-                })
-            })
-                .then(response => response.json())
-                .then(result => {
-                    alert(result.message);
-                    if (result.message === '类目添加成功') {
-                        document.getElementById('newCategoryName').value = '';
-                        // 重新加载类目列表
-                        loadCategories();
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('添加监控失败');
-                });
-        });
-    }
-});
-
-// 确保页面加载时初始化所有必要的数据
-document.addEventListener('DOMContentLoaded', function () {
-    // 加载区域配置
-    loadAreaConfig();
-    // 加载类目列表
-    loadCategories();
-
-    // 加载已保存的账号
-    fetch('/api/accounts')
-        .then(response => response.json())
-        .then(accounts => {
-            const accountInput = document.getElementById('accountInput');
-            accountInput.value = accounts.map(account =>
-                `${account.phone},${account.password}`
-            ).join('\n');
-        })
-        .catch(error => console.error('Error fetching accounts:', error));
-});
-
-// 启动/停止监控
-document.addEventListener('DOMContentLoaded', function () {
-    const startMonitorBtn = document.getElementById('startMonitorBtn');
-    const stopMonitorBtn = document.getElementById('stopMonitorBtn');
-
-    if (startMonitorBtn && stopMonitorBtn) {
-        startMonitorBtn.addEventListener('click', function () {
-            fetch('/api/monitor/start', {
-                method: 'POST'
-            })
-                .then(response => response.json())
-                .then(result => {
-                    if (result.success) {
-                        isMonitoring = true;
-                        startMonitorBtn.classList.add('hidden');
-                        stopMonitorBtn.classList.remove('hidden');
-                        startLogging();
-                    }
-                    alert(result.message);
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('启动监控失败');
-                });
-        });
-
-        stopMonitorBtn.addEventListener('click', function () {
-            fetch('/api/monitor/stop', {
-                method: 'POST'
-            })
-                .then(response => response.json())
-                .then(result => {
-                    if (result.success) {
-                        isMonitoring = false;
-                        stopMonitorBtn.classList.add('hidden');
-                        startMonitorBtn.classList.remove('hidden');
-                        stopLogging();
-                    }
-                    alert(result.message);
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('停止监控失败');
-                });
-        });
-    }
-});
-
-// 日志轮询
+// 启动日志轮询
 let activityLogInterval;
 let pointLogInterval;
 
@@ -254,30 +116,180 @@ function startLogging() {
     }, 1000);
 }
 
+// 停止日志轮询
 function stopLogging() {
     clearInterval(activityLogInterval);
     clearInterval(pointLogInterval);
 }
 
-function clearLogs() {
-    document.getElementById('activityLogContent').innerHTML = '';
-    document.getElementById('pointLogContent').innerHTML = '';
+// 监控状态检查
+function checkMonitorStatus() {
+    fetch('/api/status')
+        .then(response => response.json())
+        .then(status => {
+            const startBtn = document.getElementById('startMonitorBtn');
+            const stopBtn = document.getElementById('stopMonitorBtn');
+
+            if (status.is_running) {
+                startBtn.classList.add('hidden');
+                stopBtn.classList.remove('hidden');
+                if (!isMonitoring) {
+                    isMonitoring = true;
+                    startLogging();
+                }
+            } else {
+                stopBtn.classList.add('hidden');
+                startBtn.classList.remove('hidden');
+                if (isMonitoring) {
+                    isMonitoring = false;
+                    stopLogging();
+                }
+            }
+        })
+        .catch(error => console.error('Error checking monitor status:', error));
 }
 
-// 页面加载时获取区域配置和类目列表
+// 初始化页面事件监听器
 document.addEventListener('DOMContentLoaded', function () {
+    // 加载初始数据
     loadAreaConfig();
     loadCategories();
+    checkMonitorStatus();
+
+    // 设置定期检查监控状态
+    setInterval(checkMonitorStatus, 5000);
 
     // 加载已保存的账号
     fetch('/api/accounts')
         .then(response => response.json())
         .then(accounts => {
             const accountInput = document.getElementById('accountInput');
-            // 将账号列表转换为文本格式
             accountInput.value = accounts.map(account =>
                 `${account.phone},${account.password}`
             ).join('\n');
         })
         .catch(error => console.error('Error fetching accounts:', error));
+
+    // 导入账号按钮事件
+    const importAccountBtn = document.getElementById('importAccountBtn');
+    if (importAccountBtn) {
+        importAccountBtn.addEventListener('click', function () {
+            const accountInput = document.getElementById('accountInput');
+            const accounts = accountInput.value;
+
+            if (!accounts.trim()) {
+                alert('请输入账号信息');
+                return;
+            }
+
+            fetch('/api/accounts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({accounts})
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        alert(result.message);
+                    } else {
+                        alert(result.message || '导入失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('导入失败');
+                });
+        });
+    }
+
+    // 添加监控按钮事件
+    const addCategoryBtn = document.getElementById('addCategoryBtn');
+    if (addCategoryBtn) {
+        addCategoryBtn.addEventListener('click', function () {
+            const areaId = document.getElementById('newCategoryId').value;
+            const categoryNames = document.getElementById('newCategoryName').value;
+
+            if (!areaId) {
+                alert('请选择区域');
+                return;
+            }
+
+            if (!categoryNames) {
+                alert('请输入需要监控的商品名');
+                return;
+            }
+
+            fetch('/api/categories', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    area_id: areaId,
+                    names: categoryNames.split(',').map(name => name.trim()).filter(name => name)
+                })
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        document.getElementById('newCategoryName').value = '';
+                        loadCategories();
+                    }
+                    alert(result.message);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('添加监控失败');
+                });
+        });
+    }
+
+    // 启动监控按钮事件
+    const startMonitorBtn = document.getElementById('startMonitorBtn');
+    const stopMonitorBtn = document.getElementById('stopMonitorBtn');
+
+    if (startMonitorBtn && stopMonitorBtn) {
+        startMonitorBtn.addEventListener('click', function () {
+            fetch('/api/monitor/start', {
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        startMonitorBtn.classList.add('hidden');
+                        stopMonitorBtn.classList.remove('hidden');
+                        isMonitoring = true;
+                        startLogging();
+                    }
+                    alert(result.message);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('启动监控失败');
+                });
+        });
+
+        stopMonitorBtn.addEventListener('click', function () {
+            setTimeout(function() {alert('已经提交停止指令，稍等半分钟后自动停止...')}, 10)
+            fetch('/api/monitor/stop', {
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        stopMonitorBtn.classList.add('hidden');
+                        startMonitorBtn.classList.remove('hidden');
+                        isMonitoring = false;
+                        stopLogging();
+                    }
+                    alert(result.message);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('停止监控失败');
+                });
+        });
+    }
 });
