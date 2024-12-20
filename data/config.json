@@ -1,30 +1,7 @@
 {
-  "categories": [
-    {
-      "id": "8346",
-      "max_price": 5000,
-      "keywords": [
-        "星座挂件"
-      ]
-    },
-    {
-      "id": "8329",
-      "max_price": 5000,
-      "keywords": [
-        "星座挂件"
-      ]
-    },
-    {
-      "id": "8333",
-      "max_price": 5000,
-      "keywords": [
-        "星座挂件"
-      ]
+    "area_config": {
+        "光明文创": "8346",
+        "星耀东体夜": "8338",
+        "积分商城": "3586"
     }
-  ],
-  "check_interval": 30,
-  "location": {
-    "longitude": "120.2126",
-    "latitude": "30.290851"
-  }
 }

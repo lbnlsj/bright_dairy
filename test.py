@@ -1,231 +1,34 @@
-from loguru import logger
-import sys
-import time
-from typing import List, Dict, Optional
-from dataclasses import dataclass
-from datetime import datetime
-import os
-import random
-from queue import Queue
-from threading import Lock
 import requests
 import json
+import random
+import time
+from urllib.parse import quote
+from typing import Optional, Dict, List
+from loguru import logger
 
 
-# 配置 loguru
-def setup_logger():
-    """配置 loguru logger"""
-    # 移除默认的 sink
-    logger.remove()
-
-    # 添加控制台输出
-    logger.add(
-        sys.stdout,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-        level="INFO",
-        colorize=True
-    )
-
-    # 添加文件输出
-    logger.add(
-        "logs/auto_order_{time}.log",  # 每次运行创建新的日志文件
-        rotation="500 MB",  # 文件大小超过500MB后轮换
-        retention="10 days",  # 保留10天的日志
-        compression="zip",  # 压缩旧日志
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-        level="DEBUG",
-        encoding="utf-8"
-    )
-
-    # 添加错误专用日志文件
-    logger.add(
-        "logs/errors_{time}.log",
-        rotation="100 MB",
-        retention="30 days",
-        compression="zip",
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-        level="ERROR",
-        encoding="utf-8",
-        backtrace=True,  # 启用详细的异常回溯
-        diagnose=True  # 启用诊断信息
-    )
-
-
-@dataclass
-class Account:
-    phone: str
-    password: str
-    session: Optional[requests.Session] = None
-    proxy: Optional['Proxy'] = None
-    is_logged_in: bool = False
-    last_login_time: Optional[datetime] = None
-    login_failures: int = 0
-
-    def __str__(self):
-        return f"Account(phone={self.phone}, proxy={self.proxy.host if self.proxy else None})"
-
-
-@dataclass
-class Proxy:
-    host: str
-    port: str
-    username: str = None
-    password: str = None
-    in_use: bool = False
-
-    def __str__(self):
-        return f"{self.host}:{self.port}"
-
-
-@dataclass
-class ProductCriteria:
-    category_id: str = "8329"
-    max_price: float = None
-    keywords: List[str] = None
-
-
-class AccountManager:
+class AutoOrderTest:
     def __init__(self):
-        self.accounts: Dict[str, Account] = {}
-        self.available_accounts = Queue()
-        self.lock = Lock()
-
-    def add_account(self, account: Account):
-        with self.lock:
-            self.accounts[account.phone] = account
-            self.available_accounts.put(account.phone)
-            logger.info(f"Added account {account.phone} to pool")
-
-    def get_next_available_account(self) -> Optional[Account]:
-        try:
-            phone = self.available_accounts.get_nowait()
-            account = self.accounts[phone]
-            logger.debug(f"Got account {account} from pool")
-            return account
-        except:
-            logger.debug("No available accounts in pool")
-            return None
-
-    def return_account(self, account: Account):
-        with self.lock:
-            self.available_accounts.put(account.phone)
-            logger.debug(f"Returned account {account} to pool")
-
-
-class ProxyManager:
-    def __init__(self):
-        self.proxies: List[Proxy] = []
-        self.lock = Lock()
-
-    def add_proxy(self, proxy: Proxy):
-        with self.lock:
-            self.proxies.append(proxy)
-            logger.debug(f"Added proxy {proxy} to pool")
-
-    def get_available_proxy(self) -> Optional[Proxy]:
-        with self.lock:
-            available = [p for p in self.proxies if not p.in_use]
-            if available:
-                proxy = random.choice(available)
-                proxy.in_use = True
-                logger.debug(f"Assigned proxy {proxy}")
-                return proxy
-            logger.warning("No available proxies")
-            return None
-
-    def release_proxy(self, proxy: Proxy):
-        with self.lock:
-            proxy.in_use = False
-            logger.debug(f"Released proxy {proxy}")
-
-
-class AutoOrderService:
-    def __init__(self, accounts_file: str, proxies_file: str, check_interval: int = 1):
-        # 确保日志目录存在
-        os.makedirs("logs", exist_ok=True)
-
-        # 设置日志
-        setup_logger()
-        logger.info("Initializing AutoOrderService")
-
-        self.account_manager = AccountManager()
-        self.proxy_manager = ProxyManager()
-        self.check_interval = check_interval
-
-        # Load accounts and proxies
-        self.load_accounts(accounts_file)
-        self.load_proxies(proxies_file)
-
+        self.session = requests.Session()
+        self.guest_id = f"{self.generate_uuid()}"
         self.base_headers = {
             "accept": "application/json",
             "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+            "cache-control": "no-cache",
             "device-type": "H5",
+            "guestid": self.guest_id,
+            "pragma": "no-cache",
             "sec-ch-ua": "\"Google Chrome\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"",
             "sec-ch-ua-mobile": "?1",
             "sec-ch-ua-platform": "\"Android\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
             "tenantid": "1",
+            "x-requested-with": "XMLHttpRequest"
         }
-
-        # Initialize account sessions with proxies
-        self.initialize_account_sessions()
-
-    def load_accounts(self, filename: str):
-        """Load accounts from text file"""
-        try:
-            with open(filename, 'r', encoding='utf-8') as f:
-                for line in f:
-                    if line.strip():
-                        phone, password = line.strip().split(',')
-                        account = Account(phone=phone, password=password)
-                        self.account_manager.add_account(account)
-            logger.info(f"Successfully loaded {len(self.account_manager.accounts)} accounts")
-        except Exception as e:
-            logger.exception(f"Failed to load accounts from {filename}")
-            raise
-
-    def load_proxies(self, filename: str):
-        """Load proxies from text file"""
-        try:
-            with open(filename, 'r', encoding='utf-8') as f:
-                for line in f:
-                    if line.strip():
-                        parts = line.strip().split(':')
-                        if len(parts) >= 2:
-                            proxy = Proxy(host=parts[0], port=parts[1])
-                            if len(parts) >= 4:
-                                proxy.username = parts[2]
-                                proxy.password = parts[3]
-                            self.proxy_manager.add_proxy(proxy)
-            logger.info(f"Successfully loaded {len(self.proxy_manager.proxies)} proxies")
-        except Exception as e:
-            logger.exception(f"Failed to load proxies from {filename}")
-            raise
-
-    def initialize_account_sessions(self):
-        """Initialize sessions for all accounts and assign proxies"""
-        logger.info("Initializing account sessions and assigning proxies")
-        for account in self.account_manager.accounts.values():
-            try:
-                # Create new session
-                account.session = requests.Session()
-                account.session.headers.update(self.base_headers)
-
-                # Assign proxy
-                proxy = self.proxy_manager.get_available_proxy()
-                if proxy:
-                    account.proxy = proxy
-                    proxy_url = f"http://{proxy.host}:{proxy.port}"
-                    if proxy.username and proxy.password:
-                        proxy_url = f"http://{proxy.username}:{proxy.password}@{proxy.host}:{proxy.port}"
-                    account.session.proxies = {
-                        'http': proxy_url,
-                        'https': proxy_url
-                    }
-                    logger.info(f"Successfully initialized session for account {account}")
-                else:
-                    logger.warning(f"No proxy available for account {account.phone}")
-            except Exception as e:
-                logger.exception(f"Failed to initialize session for account {account.phone}")
+        self.session.headers.update(self.base_headers)
+        self.is_logged_in = False
 
     def generate_device_id(self) -> str:
         """Generate a random device ID"""
@@ -237,20 +40,14 @@ class AutoOrderService:
         random_suffix = ''.join(random.choices('0123456789abcdef', k=24))
         return f"{timestamp}_{random_suffix}"
 
-    @logger.catch
-    def login_account(self, account: Account) -> bool:
-        """Login with specific account"""
-        if account.is_logged_in:
-            logger.debug(f"Account {account.phone} already logged in")
-            return True
-
-        logger.info(f"Attempting to login account {account.phone}")
+    def login(self, phone: str, password: str) -> bool:
+        """Login to the system"""
         try:
             url = "https://m.4008117117.com/api/user/web/login/identify"
 
             data = {
-                "password": account.password,
-                "identify": account.phone,
+                "password": password,
+                "identify": phone,
                 "isApp": True,
                 "deviceId": self.generate_device_id(),
                 "deviceType": "H5",
@@ -259,115 +56,124 @@ class AutoOrderService:
                 "deviceSource": "344*882 devices",
             }
 
-            response = account.session.post(url, json=data)
+            response = self.session.post(url, json=data)
 
             if response.status_code == 200:
                 result = response.json()
                 if result.get("success"):
-                    account.is_logged_in = True
-                    account.last_login_time = datetime.now()
-                    account.login_failures = 0
-                    logger.success(f"Successfully logged in with account {account.phone}")
+                    self.is_logged_in = True
+                    logger.success(f"Successfully logged in with account {phone}")
                     return True
                 else:
-                    account.login_failures += 1
-                    logger.warning(f"Login failed for account {account.phone}: {result.get('message')}")
+                    logger.warning(f"Login failed: {result.get('message')}")
             return False
         except Exception as e:
-            account.login_failures += 1
-            logger.exception(f"Login error for account {account.phone}")
+            logger.exception("Login error")
             return False
 
-    @logger.catch
-    def check_product_list(self, account: Account, criteria: ProductCriteria) -> List[Dict]:
-        """Check product list using specific account"""
+    def get_products(self, category_id: str = "8346") -> List[Dict]:
+        """Get product list by category"""
         try:
             url = "https://m.4008117117.com/api/item/store/item/searchStoreSkuByCategory"
             params = {
                 "pageNo": 1,
                 "pageSize": 500,
-                "frontCategoryId": criteria.category_id,
+                "frontCategoryId": category_id,
                 "longitude": "120.2126",
                 "latitude": "30.290851",
                 "isFinish": "true"
             }
 
-            logger.debug(f"Checking products with account {account.phone}")
-            response = account.session.get(url, params=params)
+            # 设置请求头
+            headers = {
+                "accept": "application/json",
+                "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+                "cache-control": "no-cache",
+                "device-type": "H5",
+                "guestid": self.guest_id,
+                "pragma": "no-cache",
+                "sec-ch-ua": "\"Google Chrome\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"",
+                "sec-ch-ua-mobile": "?1",
+                "sec-ch-ua-platform": "\"Android\"",
+                "sec-fetch-dest": "empty",
+                "sec-fetch-mode": "cors",
+                "sec-fetch-site": "same-origin",
+                "tenantid": "1",
+                "x-requested-with": "XMLHttpRequest"
+            }
+
+            response = requests.get(url, params=params, headers=headers)
+
+            if response.status_code == 200:
+                data = response.json()
+                logger.debug(f"Response: {json.dumps(data, ensure_ascii=False)}")
+
+                if data.get("success"):
+                    # 从 data 中获取所有类目的商品列表
+                    all_products = []
+                    for category in data.get("data", []):
+                        store_sku_list = category.get("storeSkuModelList", [])
+                        if store_sku_list:
+                            all_products.extend(store_sku_list)
+
+                    logger.info(f"Found {len(all_products)} products in total")
+
+                    # 记录每个类目的商品数量
+                    for category in data.get("data", []):
+                        category_name = category.get("categoryName")
+                        products_count = len(category.get("storeSkuModelList", []))
+                        logger.info(f"Category {category_name}: {products_count} products")
+
+                    return all_products
+                else:
+                    logger.warning(f"API response not successful: {data.get('message')}")
+            else:
+                logger.error(f"Request failed with status code: {response.status_code}")
+                logger.error(f"Response content: {response.text}")
+
+            return []
+        except Exception as e:
+            logger.exception(f"Error checking product list: {str(e)}")
+            return []
+
+    def get_address_list(self) -> List[Dict]:
+        """Get user's address list"""
+        try:
+            url = "https://m.4008117117.com/api/user/web/shipping-address/self/list-all?app=o2o"
+            response = self.session.get(url)
 
             if response.status_code == 200:
                 data = response.json()
                 if data.get("success"):
-                    products = data.get("data", {}).get("records", [])
-                    matching_products = self.filter_products(products, criteria)
-                    logger.info(f"Found {len(matching_products)} matching products")
-                    return matching_products
+                    addresses = data.get("data", [])
+                    logger.info(f"Found {len(addresses)} addresses")
+                    return addresses
                 else:
-                    logger.warning(f"Failed to get product list: {data.get('message')}")
-            else:
-                logger.error(f"Failed to get product list, status code: {response.status_code}")
-
+                    logger.warning(f"Failed to get addresses: {data.get('message')}")
             return []
         except Exception as e:
-            logger.exception(f"Error checking product list with account {account.phone}")
+            logger.exception("Error getting addresses")
             return []
 
-    def filter_products(self, products: List[Dict], criteria: ProductCriteria) -> List[Dict]:
-        """Filter products based on criteria"""
-        matching_products = []
-
-        for product in products:
-            try:
-                if criteria.max_price and product.get("salePrice", 0) > criteria.max_price:
-                    continue
-
-                if criteria.keywords:
-                    name = product.get("name", "").lower()
-                    if not any(keyword.lower() in name for keyword in criteria.keywords):
-                        continue
-
-                matching_products.append(product)
-                logger.debug(f"Found matching product: {product.get('name')}")
-            except Exception as e:
-                logger.exception(f"Error filtering product: {product}")
-
-        return matching_products
-
-    @logger.catch
-    def place_order(self, account: Account, product: Dict) -> bool:
-        """Place order using specific account"""
-        if not account.is_logged_in:
-            if not self.login_account(account):
-                return False
-
-        try:
-            # 1. First render the order
-            render_response = self.render_order(account, product)
-            if not render_response:
-                return False
-
-            # 2. Create the actual order
-            order_response = self.create_order(account, product, render_response)
-            if order_response:
-                logger.success(f"Successfully placed order for {product.get('name')} with account {account.phone}")
-                return True
-            else:
-                logger.error(f"Failed to create order for {product.get('name')} with account {account.phone}")
-                return False
-        except Exception as e:
-            logger.exception(f"Error placing order with account {account.phone}")
+    def place_order(self, product: Dict, address_id: str) -> bool:
+        """Place an order for a product"""
+        if not self.is_logged_in:
+            logger.error("Not logged in")
             return False
 
-    @logger.catch
-    def render_order(self, account: Account, product: Dict) -> Optional[Dict]:
-        """Render order before placing it"""
         try:
-            url = "https://m.4008117117.com/api/trade/buy/render-order"
+            # First render the order
+            render_url = "https://m.4008117117.com/api/trade/buy/render-order"
+            devices_id = self.generate_device_id()
 
-            data = {
+            # 构建render order请求数据
+            render_data = {
                 "deviceSource": "H5",
                 "orderSource": "product.detail.page",
-                "buyConfig": {"lineGrouped": True, "multipleCoupon": True},
+                "buyConfig": {
+                    "lineGrouped": True,
+                    "multipleCoupon": True
+                },
                 "itemName": product.get("name"),
                 "orderLineList": [{
                     "skuId": product.get("skuId"),
@@ -376,48 +182,73 @@ class AutoOrderService:
                     "promotionTag": None,
                     "activityId": None,
                     "extra": {},
-                    "shopId": product.get("shopId")
+                    "shopId": product.get("storeId", "1100078037")
                 }],
                 "divisionIds": "110000,110100,110105",
-                "addressId": None,
+                "addressId": address_id,
                 "couponParams": [],
                 "benefitParams": [],
-                "delivery": {},
+                "delivery": {
+                    "code": "express",
+                    "deliveryTimeParam": {}
+                },
                 "extra": {
                     "renewOriginOrderId": "",
                     "renewOriginAddressId": "",
-                    "activityGroupId": None
-                },
-                "devicesId": self.generate_device_id(),
+                    "activityGroupId": None,
+                    "devicesId": devices_id,
+                    "deviceSource": "H5",
+                    "channelCode": "SXD",
+                    "channelName": "随心订",
+                    "operatorType": "1",
+                    "paymentMethod": "0",
+                    "presentIntegralIsVisible": "1"
+                }
             }
 
-            response = account.session.post(url, json=data)
+            # URL 编码商品名称和构建 referrer URL
+            encoded_item_name = quote(product.get("name", ""))
+            referrer_url = (
+                f"https://m.4008117117.com/buyer/preorder"
+                f"?from=itemDetail"
+                f"&itemId={product.get('itemId', '')}"
+                f"&itemName={encoded_item_name}"
+                f"&storeId={product.get('shopId', '1100078037')}"
+                f"&type=shop"
+            )
 
-            if response.status_code == 200:
-                result = response.json()
-                if result.get("success"):
-                    logger.debug(f"Successfully rendered order for {product.get('name')}")
-                    return result.get("data")
-                else:
-                    logger.warning(f"Failed to render order: {result.get('message')}")
-            else:
-                logger.error(f"Failed to render order, status code: {response.status_code}")
+            headers = {
+                **self.base_headers,
+                "content-type": "application/json; charset=UTF-8",
+                "referer": referrer_url
+            }
 
-            return None
-        except Exception as e:
-            logger.exception("Error rendering order")
-            return None
+            render_response = self.session.post(
+                render_url,
+                json=render_data,
+                headers=headers
+            )
 
-    @logger.catch
-    def create_order(self, account: Account, product: Dict, render_data: Dict) -> bool:
-        """Create the actual order"""
-        try:
-            url = "https://m.4008117117.com/api/trade/buy/create-order"
+            if not render_response.ok:
+                logger.error(f"Failed to render order: Status code {render_response.status_code}")
+                logger.debug(f"Response content: {render_response.text}")
+                return False
 
-            data = {
+            render_result = render_response.json()
+            if not render_result.get("success"):
+                logger.error(f"Failed to render order: {render_result.get('message')}")
+                return False
+
+            render_data = render_result.get("data", {})
+
+            # 构建实际订单数据
+            order_data = {
                 "deviceSource": "H5",
                 "orderSource": "product.detail.page",
-                "buyConfig": {"lineGrouped": True, "multipleCoupon": True},
+                "buyConfig": {
+                    "lineGrouped": True,
+                    "multipleCoupon": True
+                },
                 "memberPointsDeductionInfo": {
                     "available": False,
                     "visible": False,
@@ -430,203 +261,145 @@ class AutoOrderService:
                     "exchangeRatio": 1,
                     "displayRemark": None,
                     "extra": None,
-                    "presentIntegral": render_data.get("memberPointsDeductionInfo", {}).get("presentIntegral", 0)
+                    "presentIntegral": render_data['memberPointsDeductionInfo']['presentIntegral']
                 },
                 "itemName": product.get("name"),
                 "mobile": None,
                 "invoice": None,
-                "addressId": render_data.get("addressId"),
-                "couponParams": [
-                    {"activityId": -1, "benefitId": None, "shopId": 0},
-                    {"activityId": -1, "benefitId": None, "shopId": product.get("shopId")}
-                ],
-                "benefitParams": [
-                    {
-                        "activityId": -1,
-                        "benefitId": None,
-                        "shopId": 0,
-                        "benefitType": None,
-                        "amount": None
-                    }
-                ],
-                "orderList": [{
-                    "activityOrderList": [{
-                        "activityMatchedLine": {
-                            "activity": None,
-                            "valid": False,
-                            "benefitId": None,
-                            "benefitUsageInfo": None,
-                            "display": None,
-                            "matchedLineIds": None,
-                            "errorMsg": None
-                        },
-                        "activityExist": False,
-                        "orderLineList": None,
-                        "orderLineGroups": [{
-                            "orderLineList": [{
-                                "itemId": product.get("itemId"),
-                                "skuId": product.get("skuId"),
-                                "skuCode": product.get("skuCode"),
-                                "bundleId": None,
-                                "quantity": 1,
-                                "activityId": None,
-                                "shopActivityId": None,
-                                "extraParam": None,
-                                "promotionTag": None,
-                                "shopId": product.get("shopId"),
-                                "lineId": f"{product.get('skuId')}_{product.get('shopId')}",
-                                "categoryId": product.get("categoryId"),
-                                "skuName": product.get("name"),
-                                "attrs": product.get("attrs", []),
-                                "mainImage": product.get("mainImage"),
-                                "outerSkuCode": None,
-                                "status": 1,
-                                "salePrice": product.get("salePrice"),
-                                "preferSalePrice": product.get("preferSalePrice", product.get("salePrice")),
-                                "extra": render_data.get("orderLineList", [{}])[0].get("extra", {}),
-                                "summary": {
-                                    "deposit": None,
-                                    "balanceDue": None,
-                                    "taxFee": 0,
-                                    "summary": product.get("salePrice"),
-                                    "skuFee": product.get("salePrice")
-                                },
-                                "bizCode": "express",
-                                "itemAttributes": render_data.get("orderLineList", [{}])[0].get("itemAttributes", {})
-                            }]
-                        }]
-                    }],
-                    "shop": render_data.get("orderList", [{}])[0].get("shop", {}),
-                    "buyerNote": None,
-                    "extraParam": None,
-                    "priceInfo": {
-                        "allDiscount": 0,
-                        "couponTotal": 0,
-                        "shopDiscountFee": 0,
-                        "platformDiscountFee": 0,
-                        "benefitDiscountFee": 0,
-                        "totalTaxFee": 0,
-                        "skuTotalFee": product.get("salePrice"),
-                        "skuOriginTotalFee": product.get("salePrice"),
-                        "shipFeeTotal": 0,
-                        "inviterTotalFee": 0,
-                        "memberPointDeductTotal": 0,
-                        "sellCouponTotalFee": 0,
-                        "nonCouponTotal": 0,
-                        "totalFee": product.get("salePrice")
-                    },
-                    "shipFeeInfo": render_data.get("orderList", [{}])[0].get("shipFeeInfo", {})
+                "addressId": address_id,
+                "couponParams": [{
+                    "activityId": -1,
+                    "benefitId": None,
+                    "shopId": 0
+                }, {
+                    "activityId": -1,
+                    "benefitId": None,
+                    "shopId": product.get("storeId", "1100078037")
                 }],
-                "extraParam": {"cartLineIds": None},
-                "extra": {
-                    "orderSource": "product.detail.page",
-                    "settleAccountName": render_data.get("extra", {}).get("settleAccountName"),
-                    "settleAccountId": render_data.get("extra", {}).get("settleAccountId"),
-                    "advisorText": render_data.get("extra", {}).get("advisorText"),
-                    "customerName": None,
-                    "renewOriginAddressId": "",
-                    "devicesId": self.generate_device_id(),
-                    "deviceSource": "H5",
-                    "customerId": None,
-                    "renewOriginOrderId": "",
-                    "paymentMethod": "0",
-                    "channelName": "随心订",
-                    "operatorType": "1",
-                    "activityGroupId": None,
-                    "channelCode": "SXD",
-                    "presentIntegralIsVisible": "1"
-                },
+                "benefitParams": [{
+                    "activityId": -1,
+                    "benefitId": None,
+                    "shopId": 0,
+                    "benefitType": None,
+                    "amount": None
+                }],
+                "orderList": render_data.get("orderList", []),  # 只有这里未检查
                 "delivery": {
                     "code": "express",
                     "deliveryTimeParam": {}
-                }
+                },
+                "extra": {
+                    "orderSource": "product.detail.page",
+                    "settleAccountName": "上海光明随心订电子商务有限公司",
+                    "settleAccountId": "52",
+                    "advisorText": "光明健康顾问编号为7-8位数\\n光明健康顾问编号由字母及数字组成\\n光明健康顾问编号内字母为大写字母",
+                    "renewOriginAddressId": "",
+                    "devicesId": devices_id,
+                    "deviceSource": "H5",
+                    "renewOriginOrderId": "",
+                    "paymentMethod": "0",
+                    "channelName": "随心订",
+                    "customerId": None,
+                    "customerName": None,
+                    "operatorType": "1",
+                    "activityGroupId": None,
+                    "channelCode": "SXD",
+                    "presentIntegralIsVisible": "1",
+                    "needUpstairs": "0",
+                    "needMilkBox": "0",
+                    "isFreeOrder": 0
+                },
+                "extraParam": {"cartLineIds": None}
             }
 
-            response = account.session.post(url, json=data)
+            # 创建订单
+            create_url = "https://m.4008117117.com/api/trade/buy/create-order"
+            order_response = self.session.post(
+                create_url,
+                json=order_data,
+                headers=headers
+            )
 
-            if response.status_code == 200:
-                result = response.json()
+            if order_response.status_code == 200:
+                result = order_response.json()
                 if result.get("success"):
-                    logger.success(f"Successfully created order for {product.get('name')}")
+                    order_info = result.get("data", {})
+                    logger.success(f"Successfully placed order for {product.get('name')}")
+                    logger.info(f"Purchase order ID: {order_info.get('purchaseOrderId')}")
+                    logger.info(f"Order details: {json.dumps(order_info, ensure_ascii=False)}")
                     return True
                 else:
                     logger.warning(f"Failed to create order: {result.get('message')}")
+                    logger.debug(f"Full response: {json.dumps(result, ensure_ascii=False)}")
             else:
-                logger.error(f"Failed to create order, status code: {response.status_code}")
+                logger.error(f"Order creation failed with status code: {order_response.status_code}")
+                logger.debug(f"Response content: {order_response.text}")
 
             return False
         except Exception as e:
-            logger.exception("Error creating order")
+            logger.exception("Error placing order")
             return False
-
-    def run(self, criteria: ProductCriteria):
-        """Main service loop"""
-        logger.info("Starting auto order service")
-
-        # First login all accounts
-        logger.info("Performing initial login for all accounts")
-        for account in self.account_manager.accounts.values():
-            self.login_account(account)
-
-        logger.info("Entering main monitoring loop")
-        while True:
-            try:
-                # Get next available account
-                account = self.account_manager.get_next_available_account()
-                if not account:
-                    logger.debug("No available accounts, waiting...")
-                    time.sleep(1)
-                    continue
-
-                # Check products with this account
-                matching_products = self.check_product_list(account, criteria)
-
-                if matching_products:
-                    logger.info(f"Found {len(matching_products)} matching products")
-                    # Try to place orders
-                    for product in matching_products:
-                        if self.place_order(account, product):
-                            logger.success(
-                                f"Successfully ordered product: {product.get('name')} with account {account.phone}")
-                        else:
-                            logger.error(f"Failed to order product: {product.get('name')} with account {account.phone}")
-                else:
-                    logger.debug(f"No matching products found for current criteria")
-
-                # Return account to pool
-                self.account_manager.return_account(account)
-
-                # Wait before next check
-                logger.debug(f"Waiting {self.check_interval} seconds before next check")
-                time.sleep(self.check_interval)
-
-            except Exception as e:
-                logger.exception("Error in main service loop")
-                if account:
-                    self.account_manager.return_account(account)
-                time.sleep(self.check_interval)
 
 
 if __name__ == "__main__":
+    # 配置logger
+    logger.remove()
+    logger.add(
+        "test_logs.log",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
+        level="DEBUG",
+    )
+    logger.add(
+        lambda msg: print(msg),
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
+        level="INFO",
+        colorize=True
+    )
+
+    # 测试账号信息
+    TEST_PHONE = "16582969234"
+    TEST_PASSWORD = "jj123456"
+
     try:
-        # Configuration
-        ACCOUNTS_FILE = "accounts.txt"
-        PROXIES_FILE = "proxies.txt"
-        CHECK_INTERVAL = 30  # seconds
+        # 创建测试实例
+        auto_order = AutoOrderTest()
 
-        # Create criteria for products
-        criteria = ProductCriteria(
-            category_id="8329",
-            max_price=5000,
-            keywords=["星座挂件"]
-        )
+        # 测试登录
+        logger.info("Testing login...")
+        if auto_order.login(TEST_PHONE, TEST_PASSWORD):
+            logger.success("Login successful")
 
-        # Start service
-        logger.info("Starting application")
-        service = AutoOrderService(ACCOUNTS_FILE, PROXIES_FILE, CHECK_INTERVAL)
-        service.run(criteria)
-    except KeyboardInterrupt:
-        logger.warning("Service stopped by user")
+            while 1:
+                # 测试获取商品列表
+                logger.info("Testing get products...")
+                products = auto_order.get_products('8338')
+                # products = auto_order.get_products()
+                if products:
+                    logger.success(f"Successfully retrieved {len(products)} products")
+
+                    # 测试获取地址列表
+                    logger.info("Testing get addresses...")
+                    addresses = auto_order.get_address_list()
+                    if addresses:
+                        logger.success(f"Successfully retrieved {len(addresses)} addresses")
+
+                        # 测试下单（仅在有地址和商品的情况下）
+                        if products and addresses:
+                            logger.info("Testing place order...")
+                            test_product = products[0]  # 使用第一个商品测试
+                            test_address = addresses[0]  # 使用第一个地址测试
+                            if auto_order.place_order(test_product, test_address.get("id")):
+                                logger.success("Order placed successfully")
+                            else:
+                                logger.error("Failed to place order")
+                                time.sleep(0.5)
+                                continue
+                    else:
+                        logger.error("No addresses found")
+                else:
+                    logger.error("No products found")
+        else:
+            logger.error("Login failed")
+
     except Exception as e:
-        logger.exception("Service crashed")
-        raise
+        logger.exception("Test failed with error")

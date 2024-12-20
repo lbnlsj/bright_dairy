@@ -1,4 +1,11 @@
 # API例子以及说明
+```json
+{
+    "光明文创": 8346,
+    "星耀东体夜": 8338,
+    "积分商城": 3586
+}
+```
 ## 获取列表
 ```js
 fetch("https://m.4008117117.com/api/item/shop-category/tree?frontCategoryId=4403&longitude=120.2126&latitude=30.290851&isFinish=true", {
