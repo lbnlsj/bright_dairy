@@ -1,0 +1,20 @@
+2024-12-10 15:56:01 | INFO     | __main__:__init__:149 - Initializing AutoOrderService
+2024-12-10 15:56:01 | INFO     | __main__:add_account:97 - Added account 15558581380 to pool
+2024-12-10 15:56:01 | INFO     | __main__:add_account:97 - Added account 15557551903 to pool
+2024-12-10 15:56:01 | INFO     | __main__:load_accounts:181 - Successfully loaded 2 accounts
+2024-12-10 15:56:01 | DEBUG    | __main__:add_proxy:123 - Added proxy 127.0.0.1:7890 to pool
+2024-12-10 15:56:01 | DEBUG    | __main__:add_proxy:123 - Added proxy 127.0.0.1:7890 to pool
+2024-12-10 15:56:01 | INFO     | __main__:load_proxies:199 - Successfully loaded 2 proxies
+2024-12-10 15:56:01 | INFO     | __main__:initialize_account_sessions:206 - Initializing account sessions and assigning proxies
+2024-12-10 15:56:01 | DEBUG    | __main__:get_available_proxy:131 - Assigned proxy 127.0.0.1:7890
+2024-12-10 15:56:01 | INFO     | __main__:initialize_account_sessions:224 - Successfully initialized session for account Account(phone=15558581380, proxy=127.0.0.1)
+2024-12-10 15:56:01 | DEBUG    | __main__:get_available_proxy:131 - Assigned proxy 127.0.0.1:7890
+2024-12-10 15:56:01 | INFO     | __main__:initialize_account_sessions:224 - Successfully initialized session for account Account(phone=15557551903, proxy=127.0.0.1)
+2024-12-10 15:56:01 | INFO     | __main__:run:564 - Starting auto order service
+2024-12-10 15:56:01 | INFO     | __main__:run:567 - Performing initial login for all accounts
+2024-12-10 15:56:01 | INFO     | __main__:login_account:247 - Attempting to login account 15558581380
+2024-12-10 15:56:01 | INFO     | __main__:login_account:247 - Attempting to login account 15557551903
+2024-12-10 15:56:02 | SUCCESS  | __main__:login_account:270 - Successfully logged in with account 15557551903
+2024-12-10 15:56:02 | INFO     | __main__:run:571 - Entering main monitoring loop
+2024-12-10 15:56:02 | DEBUG    | __main__:get_next_available_account:103 - Got account Account(phone=15558581380, proxy=127.0.0.1) from pool
+2024-12-10 15:56:39 | DEBUG    | __main__:check_product_list:295 - Checking products with account 15558581380

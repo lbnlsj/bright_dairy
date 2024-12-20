@@ -1,0 +1,59 @@
+2024-12-10 15:54:43 | ERROR    | __main__:check_product_list:312 - Error checking product list with account 15558581380
+Traceback (most recent call last):
+
+  File "/Applications/PyCharm.app/Contents/plugins/python/helpers/pydev/pydevd.py", line 2252, in <module>
+    main()
+    └ <function main at 0x134cd1e50>
+
+  File "/Applications/PyCharm.app/Contents/plugins/python/helpers/pydev/pydevd.py", line 2234, in main
+    globals = debugger.run(setup['file'], None, None, is_module)
+              │        │   │                          └ False
+              │        │   └ {'port': 50442, 'vm_type': None, 'client': '127.0.0.1', 'server': False, 'DEBUG_RECORD_SOCKET_READS': False, 'multiproc': Fal...
+              │        └ <function PyDB.run at 0x134cd0e50>
+              └ <__main__.PyDB object at 0x134cb8550>
+
+  File "/Applications/PyCharm.app/Contents/plugins/python/helpers/pydev/pydevd.py", line 1544, in run
+    return self._exec(is_module, entry_point_fn, module_name, file, globals, locals)
+           │    │     │          │               │            │     │        └ {'__name__': '__main__', '__doc__': None, '__package__': '', '__loader__': <_frozen_importlib_external.SourceFileLoader objec...
+           │    │     │          │               │            │     └ {'__name__': '__main__', '__doc__': None, '__package__': '', '__loader__': <_frozen_importlib_external.SourceFileLoader objec...
+           │    │     │          │               │            └ '/Users/Zhuanz/Desktop/projects/6kmini_program_crawler/project/test.py'
+           │    │     │          │               └ None
+           │    │     │          └ ''
+           │    │     └ False
+           │    └ <function PyDB._exec at 0x134cd0ee0>
+           └ <__main__.PyDB object at 0x134cb8550>
+
+  File "/Applications/PyCharm.app/Contents/plugins/python/helpers/pydev/pydevd.py", line 1551, in _exec
+    pydev_imports.execfile(file, globals, locals)  # execute the script
+    │             │        │     │        └ {'__name__': '__main__', '__doc__': None, '__package__': '', '__loader__': <_frozen_importlib_external.SourceFileLoader objec...
+    │             │        │     └ {'__name__': '__main__', '__doc__': None, '__package__': '', '__loader__': <_frozen_importlib_external.SourceFileLoader objec...
+    │             │        └ '/Users/Zhuanz/Desktop/projects/6kmini_program_crawler/project/test.py'
+    │             └ <function execfile at 0x116907f70>
+    └ <module '_pydev_bundle.pydev_imports' from '/Applications/PyCharm.app/Contents/plugins/python/helpers/pydev/_pydev_bundle/pyd...
+
+  File "/Applications/PyCharm.app/Contents/plugins/python/helpers/pydev/_pydev_imps/_pydev_execfile.py", line 18, in execfile
+    exec(compile(contents+"\n", file, 'exec'), glob, loc)
+                 │              │              │     └ {'__name__': '__main__', '__doc__': None, '__package__': '', '__loader__': <_frozen_importlib_external.SourceFileLoader objec...
+                 │              │              └ {'__name__': '__main__', '__doc__': None, '__package__': '', '__loader__': <_frozen_importlib_external.SourceFileLoader objec...
+                 │              └ '/Users/Zhuanz/Desktop/projects/6kmini_program_crawler/project/test.py'
+                 └ 'from loguru import logger\nimport sys\nimport time\nfrom typing import List, Dict, Optional\nfrom dataclasses import datacla...
+
+  File "/Users/Zhuanz/Desktop/projects/6kmini_program_crawler/project/test.py", line 627, in <module>
+    service.run(criteria)
+    │       │   └ ProductCriteria(category_id='8329', max_price=5000, keywords=['星座挂件'])
+    │       └ <function AutoOrderService.run at 0x135ae8940>
+    └ <__main__.AutoOrderService object at 0x135a833a0>
+
+  File "/Users/Zhuanz/Desktop/projects/6kmini_program_crawler/project/test.py", line 582, in run
+    matching_products = self.check_product_list(account, criteria)
+                        │    │                  │        └ ProductCriteria(category_id='8329', max_price=5000, keywords=['星座挂件'])
+                        │    │                  └ Account(phone='15558581380', password='gbaycm123', session=<requests.sessions.Session object at 0x135af93d0>, proxy=Proxy(hos...
+                        │    └ <function AutoOrderService.check_product_list at 0x135ae1b80>
+                        └ <__main__.AutoOrderService object at 0x135a833a0>
+
+> File "/Users/Zhuanz/Desktop/projects/6kmini_program_crawler/project/test.py", line 301, in check_product_list
+    products = data.get("data", {}).get("records", [])
+               │    └ <method 'get' of 'dict' objects>
+               └ {'data': [{'categoryId': 8337, 'categoryName': '“梅奔”星光夜', 'logo': None, 'extra': {'bannerImage': '', 'tagImage': ''}, 'storeS...
+
+AttributeError: 'list' object has no attribute 'get'

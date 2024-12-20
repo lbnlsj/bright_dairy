@@ -1,0 +1,9 @@
+2024-12-10 15:50:38 | INFO     | __main__:__init__:149 - Initializing AutoOrderService
+2024-12-10 15:50:38 | INFO     | __main__:add_account:97 - Added account 15558581380 to pool
+2024-12-10 15:50:38 | INFO     | __main__:add_account:97 - Added account 15557551903 to pool
+2024-12-10 15:50:38 | INFO     | __main__:load_accounts:181 - Successfully loaded 2 accounts
+2024-12-10 15:50:38 | DEBUG    | __main__:add_proxy:123 - Added proxy 127.0.0.1:7890 to pool
+2024-12-10 15:50:38 | DEBUG    | __main__:add_proxy:123 - Added proxy 127.0.0.1:7890 to pool
+2024-12-10 15:50:38 | INFO     | __main__:load_proxies:199 - Successfully loaded 2 proxies
+2024-12-10 15:50:38 | INFO     | __main__:initialize_account_sessions:206 - Initializing account sessions and assigning proxies
+2024-12-10 15:52:21 | WARNING  | __main__:<module>:626 - Service stopped by user

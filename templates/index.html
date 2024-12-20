@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Order Monitor</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="/static/main.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8">自动下单监控系统</h1>
+
+        <!-- 控制面板 -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">监控控制</h2>
+                <div>
+                    <button id="startMonitorBtn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-2">
+                        开始监控
+                    </button>
+                    <button id="stopMonitorBtn" class="hidden bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+                        停止监控
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 账号管理 -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">账号管理</h2>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">
+                    导入账号 (手机号,密码)
+                </label>
+                <textarea
+                    id="accountInput"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    rows="4"
+                    placeholder="13800138000,password&#10;13800138001,password"
+                ></textarea>
+            </div>
+            <button id="importAccountBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                导入账号
+            </button>
+        </div>
+
+        <!-- 类目管理 -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">类目管理</h2>
+            <div class="grid grid-cols-1 gap-4">
+                <!-- 添加类目 -->
+                <div class="flex gap-4 items-end mb-4">
+                    <div class="flex-1">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">
+                            类目ID
+                        </label>
+                        <input
+                            id="newCategoryId"
+                            type="text"
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                            placeholder="请输入类目ID"
+                        >
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">
+                            类目名称
+                        </label>
+                        <input
+                            id="newCategoryName"
+                            type="text"
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                            placeholder="请输入类目名称"
+                        >
+                    </div>
+                    <button id="addCategoryBtn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                        添加类目
+                    </button>
+                </div>
+
+                <!-- 类目列表 -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="px-4 py-2 text-left">类目ID</th>
+                                <th class="px-4 py-2 text-left">类目名称</th>
+                                <th class="px-4 py-2 text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoryList">
+                            <!-- 类目列表将通过JavaScript动态填充 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 日志显示区域 -->
+        <div class="grid grid-cols-2 gap-6">
+            <!-- 活动商品日志 -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold">活动商品日志</h2>
+                    <button onclick="clearLogs()" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded text-sm">
+                        清空日志
+                    </button>
+                </div>
+                <div class="bg-gray-900 rounded p-4 h-96 overflow-y-auto">
+                    <pre id="activityLogContent" class="text-green-400 font-mono text-sm whitespace-pre-wrap"></pre>
+                </div>
+            </div>
+
+            <!-- 积分商品日志 -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold">积分商品日志</h2>
+                    <button onclick="clearLogs()" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded text-sm">
+                        清空日志
+                    </button>
+                </div>
+                <div class="bg-gray-900 rounded p-4 h-96 overflow-y-auto">
+                    <pre id="pointLogContent" class="text-green-400 font-mono text-sm whitespace-pre-wrap"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑类目弹窗 -->
+    <div id="editModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">编辑类目</h3>
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">类目ID</label>
+                    <input type="text" id="editCategoryId" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">类目名称</label>
+                    <input type="text" id="editCategoryName" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="flex justify-end gap-4">
+                    <button id="cancelEditBtn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">取消</button>
+                    <button id="saveEditBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
