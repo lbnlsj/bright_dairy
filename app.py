@@ -30,14 +30,14 @@ def generate_mock_log():
     """生成模拟日志"""
     log_types = ['INFO', 'DEBUG', 'WARNING', 'ERROR', 'SUCCESS']
     log_templates = [
-        ("Checking products with account {0}", lambda: f"138{random.randint(10000000, 99999999)}"),
-        ("Found {0} matching products", lambda: str(random.randint(0, 10))),
-        ("Successfully ordered product: {0} with account {1}", lambda: (
-            random.choice(["星座挂件A", "星座挂件B", "星座挂件C", "星座挂件D"]),
-            f"138{random.randint(10000000, 99999999)}"
+        # ("Checking products with account {0}", lambda: f"138{random.randint(10000000, 99999999)}"),
+        ("Found {0} matching products", lambda: str(random.randint(0, 0))),
+        ("Unsuccessfully ordered product: {0} with account {1}", lambda: (
+            random.choice([""]),
+            f""
         )),
         ("No available proxies for account {0}", lambda: f"138{random.randint(10000000, 99999999)}"),
-        ("Login successful for account {0}", lambda: f"138{random.randint(10000000, 99999999)}"),
+        ("Login fail for account {0}", lambda: f""),
         ("Waiting {0} seconds before next check", lambda: str(random.randint(1, 30)))
     ]
 
