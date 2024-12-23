@@ -7,6 +7,7 @@ from typing import List, Dict, Optional, Set
 from datetime import datetime
 from loguru import logger
 import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from utilities import AutoOrderTest
 
@@ -87,6 +88,8 @@ class MonitorTask:
         self.is_running = False
         self.threads: List[threading.Thread] = []
         self._lock = threading.Lock()
+        # 创建线程池用于并发下单
+        self.order_executor = ThreadPoolExecutor(max_workers=10)
 
     def log_activity(self, message: str) -> None:
         """Log activity message to frontend"""
@@ -99,6 +102,25 @@ class MonitorTask:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.point_log_queue.put(f"[{timestamp}] {message}")
         logger.info(message)
+
+    def _place_order(self, auto_order: AutoOrderTest, product: Dict,
+                     address_id: str, phone: str) -> None:
+        """Handle single order placement"""
+        try:
+            if auto_order.place_order(product, address_id):
+                self.order_tracker.mark_ordered(phone, product['itemId'])
+                if product.get('is_point_product'):
+                    self.log_point(
+                        f"Successfully ordered point product {product['name']} "
+                        f"with account {phone}"
+                    )
+                else:
+                    self.log_activity(
+                        f"Successfully ordered activity product {product['name']} "
+                        f"with account {phone}"
+                    )
+        except Exception as e:
+            logger.exception(f"Error placing order for {product['name']} with account {phone}: {str(e)}")
 
     def _monitor_category(self, category: Dict):
         """Monitor single category"""
@@ -122,7 +144,10 @@ class MonitorTask:
                     if product['name'].lower().find(category['name'].lower()) == -1:
                         continue
 
-                    # Try with each logged-in account
+                    # 创建并发下单任务列表
+                    order_futures = []
+
+                    # 为每个账号创建下单任务
                     for account in self.account_manager.accounts:
                         phone = account['phone']
 
@@ -139,21 +164,25 @@ class MonitorTask:
                         if not addresses:
                             continue
 
-                        # Attempt to place order
-                        if auto_order.place_order(product, addresses[0]['id']):
-                            self.order_tracker.mark_ordered(phone, product['itemId'])
-                            if product.get('is_point_product'):
-                                self.log_point(
-                                    f"Successfully ordered point product {product['name']} "
-                                    f"with account {phone}"
-                                )
-                            else:
-                                self.log_activity(
-                                    f"Successfully ordered activity product {product['name']} "
-                                    f"with account {phone}"
-                                )
+                        # 提交下单任务到线程池
+                        future = self.order_executor.submit(
+                            self._place_order,
+                            auto_order,
+                            product,
+                            addresses[0]['id'],
+                            phone
+                        )
+                        order_futures.append(future)
 
-                        time.sleep(random.uniform(0.5, 1.5))
+                    # 等待所有下单任务完成
+                    for future in as_completed(order_futures):
+                        try:
+                            future.result()  # 获取任务结果，捕获可能的异常
+                        except Exception as e:
+                            logger.exception(f"Order task failed: {str(e)}")
+
+                    # 在所有下单任务完成后添加随机延迟
+                    time.sleep(random.uniform(0.5, 1.5))
 
             except Exception as e:
                 logger.exception(f"Error monitoring category {category['name']}: {str(e)}")
@@ -201,6 +230,9 @@ class MonitorTask:
                 return
 
             self.is_running = False
+
+            # 关闭线程池
+            self.order_executor.shutdown(wait=True)
 
             # Wait for all threads to finish
             for thread in self.threads:
