@@ -1,6 +1,8 @@
 from flask import Flask, render_template, jsonify, request
 from datetime import datetime
 import threading
+import json
+import requests
 import queue
 from pathlib import Path
 from loguru import logger
@@ -49,8 +51,63 @@ accounts = data_manager.load_accounts()
 categories = data_manager.load_categories()
 
 
+def update_config():
+    try:
+        url = 'https://m.4008117117.com/api/item/shop-category/tree?frontCategoryId=4403&longitude=120.2126&latitude=30.290851&isFinish=true'
+        response = requests.get(url)
+
+        if not response.ok:
+            logger.error(f"Failed to fetch config: HTTP {response.status_code}")
+            return False
+
+        data = response.json()
+        if not data.get('success'):
+            logger.error("API response indicates failure")
+            return False
+
+        # Get the childrenList from first item in data
+        child_list = data.get('data', [])[0].get('childrenList', [])
+
+        # Initialize new area config
+        new_area_config = {}
+
+        # Extract required categories
+        for child in child_list:
+            name = child['name']
+            area_id = child['id']
+
+            # Only add specific areas we're interested in
+            new_area_config[name] = area_id
+
+        # Add fixed entry for 积分商城
+        new_area_config['积分商城'] = '3586'
+
+        # Load existing config
+        config_path = Path('data/config.json')
+        if config_path.exists():
+            with open(config_path, 'r', encoding='utf-8') as f:
+                current_config = json.load(f)
+        else:
+            current_config = {}
+
+        # Update area_config section
+        current_config['area_config'] = new_area_config
+
+        # Save updated config
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(current_config, f, ensure_ascii=False, indent=2)
+
+        logger.info("Successfully updated config with new area mappings")
+        return True
+
+    except Exception as e:
+        logger.exception("Failed to update config")
+        return False
+
+
 @app.route('/')
 def index():
+    update_config()
     return render_template('index.html')
 
 
