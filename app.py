@@ -409,4 +409,4 @@ if __name__ == '__main__':
     # start_monitor_on_startup()
 
     # Start application
-    app.run(host='0.0.0.0', port=1848, debug=True)
+    app.run(host='0.0.0.0', port=7485, debug=True)
