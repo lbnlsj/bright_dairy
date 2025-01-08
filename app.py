@@ -7,7 +7,7 @@ import queue
 from pathlib import Path
 from loguru import logger
 from data_manager import DataManager
-from monitor_core import MonitorTask
+from monitor_core import MonitorTask, send_dingding_msg
 
 # Configure logging
 logger.remove()
@@ -460,6 +460,7 @@ def start_monitor_on_startup():
 
 if __name__ == '__main__':
     # Ensure log directory exists
+    send_dingding_msg('开始运行')
     Path("logs").mkdir(exist_ok=True)
 
     # 自动启动监控

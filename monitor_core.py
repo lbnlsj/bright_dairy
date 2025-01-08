@@ -2,6 +2,9 @@ import threading
 import random
 import queue
 import time
+import json
+import requests
+
 from pathlib import Path
 from typing import List, Dict, Optional, Set
 from datetime import datetime
@@ -76,6 +79,26 @@ class OrderTracker:
             self.ordered_items[account_phone].add(item_id)
 
 
+def send_dingding_msg(contract='开始运行'):
+    try:
+        webhook_url = "https://oapi.dingtalk.com/robot/send?access_token=5bf42f0db17a48ce1c68de7e5fa9d31a19bc309932c582fa8c8317f88ab582f8"
+        payload = {
+
+            "msgtype": "text",
+            "text": {
+                "content": f"{contract}:"
+            }
+        }
+
+        response = requests.post(webhook_url, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
+        if response.status_code == 200:
+            print(f"Dingding message sent successfully for {contract}")
+        else:
+            print(f"Failed to send Dingding message for {contract}, status code: {response.status_code}")
+    except Exception as e:
+        print(f"Error sending Dingding message: {e}")
+
+
 class MonitorTask:
     def __init__(self, accounts: List[Dict], categories: List[Dict],
                  activity_log_queue: queue.Queue, point_log_queue: queue.Queue):
@@ -90,6 +113,7 @@ class MonitorTask:
         self._lock = threading.Lock()
         # 创建线程池用于并发下单
         self.order_executor = ThreadPoolExecutor(max_workers=10)
+        send_dingding_msg()
 
     def log_activity(self, message: str) -> None:
         """Log activity message to frontend"""
@@ -109,6 +133,8 @@ class MonitorTask:
         try:
             if auto_order.place_order(product, address_id):
                 self.order_tracker.mark_ordered(phone, product['itemId'])
+                send_dingding_msg(f"Successfully ordered point product {product['name']} "
+                                  f"with account {phone}")
                 if product.get('is_point_product'):
                     self.log_point(
                         f"Successfully ordered point product {product['name']} "
