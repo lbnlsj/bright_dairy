@@ -66,7 +66,8 @@ def update_config():
             return False
 
         # Get the childrenList from first item in data
-        child_list = data.get('data', [])[0].get('childrenList', [])
+        # child_list = data.get('data', [])[0].get('childrenList', [])
+        child_list = [d for d in data.get('data', []) if d['name'] == '光明好礼'][0].get('childrenList', [])
 
         # Initialize new area config
         new_area_config = {}
