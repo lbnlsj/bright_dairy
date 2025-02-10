@@ -159,7 +159,7 @@ class MonitorTask:
                 products = checker.get_products(category['area_id'])
                 if not products:
                     self.log_activity(f"No products found in category {category['name']}")
-                    time.sleep(random.uniform(2, 4))
+                    time.sleep(random.uniform(1, 2))
                     continue
 
                 # Check each product
@@ -208,7 +208,7 @@ class MonitorTask:
                             logger.exception(f"Order task failed: {str(e)}")
 
                     # 在所有下单任务完成后添加随机延迟
-                    time.sleep(random.uniform(0.5, 1.5))
+                    time.sleep(random.uniform(0.1, 0.5))
 
             except Exception as e:
                 logger.exception(f"Error monitoring category {category['name']}: {str(e)}")
@@ -218,7 +218,7 @@ class MonitorTask:
                     self.log_activity(f"Error in activity category {category['name']}: {str(e)}")
                 traceback.print_exc()
 
-            time.sleep(random.uniform(2, 4))
+            time.sleep(random.uniform(1, 2))
 
     def start(self):
         """Start monitoring"""
