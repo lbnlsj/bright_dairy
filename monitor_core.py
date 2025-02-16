@@ -53,6 +53,7 @@ class AccountManager:
             if auto_order.login(phone, account['password']):
                 logger.success(f"Account {phone} initialized and logged in successfully")
                 self.auto_orders[phone] = auto_order
+                account['address'] = auto_order.get_address_list()
             else:
                 logger.error(f"Failed to initialize account {phone}")
 
@@ -159,7 +160,7 @@ class MonitorTask:
                 products = checker.get_products(category['area_id'])
                 if not products:
                     self.log_activity(f"No products found in category {category['name']}")
-                    time.sleep(random.uniform(1, 2))
+                    time.sleep(random.uniform(0.5, 1))
                     continue
 
                 # Check each product
@@ -186,7 +187,8 @@ class MonitorTask:
                             continue
 
                         # Get address list
-                        addresses = auto_order.get_address_list()
+                        # addresses = auto_order.get_address_list()
+                        addresses = account.address
                         if not addresses:
                             continue
 
