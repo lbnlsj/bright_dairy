@@ -188,7 +188,7 @@ class MonitorTask:
 
                         # Get address list
                         # addresses = auto_order.get_address_list()
-                        addresses = account.address
+                        addresses = account['address']
                         if not addresses:
                             continue
 
